@@ -367,7 +367,8 @@ cleanup:
 ///            - file: (`string`) [<afile>] (not expanded to a full path)
 ///            - match: (`string`) [<amatch>] (expanded to a full path)
 ///            - buf: (`number`) [<abuf>]
-///            - data: (`any`) Arbitrary data passed from [nvim_exec_autocmds()] [event-data]()
+///            - data: (`any`) Arbitrary data passed from [nvim_exec_autocmds()].
+///              See |vim.event| for event-data types. [event-data]()
 ///        - command (string?) Vim command executed on event. Not allowed with {callback}.
 ///        - desc (`string?`) Description (for documentation and troubleshooting).
 ///        - group (`string|integer?`) Group name or id to match against.

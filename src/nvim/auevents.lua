@@ -1,3 +1,7 @@
+--- @class nvim.event_data
+--- @field desc? string
+--- @field fields { name: string, type: string, desc?: string, optional?: boolean }[]
+
 return {
   --- @type table<string,boolean>
   --- Keys are events names.
@@ -177,5 +181,244 @@ return {
     TermRequest = true,
     UIEnter = true,
     UILeave = true,
+  },
+  --- @type table<string,nvim.event_data>
+  data = {
+    DiagnosticChanged = {
+      fields = {
+        {
+          name = 'diagnostics',
+          type = 'vim.Diagnostic[]',
+          desc = 'New diagnostics for the buffer.',
+        },
+      },
+    },
+    LspAttach = {
+      fields = {
+        {
+          name = 'client_id',
+          type = 'integer',
+          desc = 'LSP client ID.',
+        },
+      },
+    },
+    LspDetach = {
+      fields = {
+        {
+          name = 'client_id',
+          type = 'integer',
+          desc = 'LSP client ID.',
+        },
+      },
+    },
+    LspNotify = {
+      fields = {
+        {
+          name = 'client_id',
+          type = 'integer',
+          desc = 'LSP client ID.',
+        },
+        {
+          name = 'method',
+          type = 'vim.lsp.protocol.Method.ClientToServer.Notification',
+          desc = 'Notification method name.',
+        },
+        {
+          name = 'params',
+          type = 'table',
+          desc = 'Notification parameters.',
+          optional = true,
+        },
+      },
+    },
+    LspProgress = {
+      fields = {
+        {
+          name = 'client_id',
+          type = 'integer',
+          desc = 'LSP client ID.',
+        },
+        {
+          name = 'params',
+          type = 'lsp.ProgressParams',
+          desc = 'The request params sent by the server.',
+        },
+      },
+    },
+    LspRequest = {
+      fields = {
+        {
+          name = 'client_id',
+          type = 'integer',
+          desc = 'LSP client ID.',
+        },
+        {
+          name = 'request_id',
+          type = 'integer',
+          desc = 'Request ID.',
+        },
+        {
+          name = 'request',
+          type = "{ type: 'pending'|'complete'|'cancel', bufnr: integer, method: vim.lsp.protocol.Method.ClientToServer.Request }",
+          desc = 'Request information.',
+        },
+      },
+    },
+    LspTokenUpdate = {
+      fields = {
+        {
+          name = 'client_id',
+          type = 'integer',
+          desc = 'LSP client ID.',
+        },
+        {
+          name = 'token',
+          type = '{ line: integer, start_col: integer, end_line: integer, end_col: integer, type: string, modifiers: table<string,boolean>, marked: boolean }',
+          desc = 'Semantic token (see vim.lsp.semantic_tokens.get_at_pos()).',
+        },
+      },
+    },
+    MarkSet = {
+      fields = {
+        {
+          name = 'name',
+          type = 'string',
+          desc = 'Mark name (e.g. "a").',
+        },
+        {
+          name = 'line',
+          type = 'integer',
+          desc = 'Mark line.',
+        },
+        {
+          name = 'col',
+          type = 'integer',
+          desc = 'Mark column.',
+        },
+      },
+    },
+    PackChanged = {
+      fields = {
+        {
+          name = 'active',
+          type = 'boolean',
+          desc = 'Whether the plugin is active for the current session.',
+        },
+        {
+          name = 'kind',
+          type = '"install"|"update"|"delete"',
+          desc = 'Type of change.',
+        },
+        {
+          name = 'spec',
+          type = 'vim.pack.SpecResolved',
+          desc = 'Plugin specifications.',
+        },
+        {
+          name = 'path',
+          type = 'string',
+          desc = "Full path to the plugin's directory.",
+        },
+      },
+    },
+    PackChangedPre = {
+      fields = {
+        {
+          name = 'active',
+          type = 'boolean',
+          desc = 'Whether the plugin is active for the current session.',
+        },
+        {
+          name = 'kind',
+          type = '"install"|"update"|"delete"',
+          desc = 'Type of change.',
+        },
+        {
+          name = 'spec',
+          type = 'vim.pack.SpecResolved',
+          desc = 'Plugin specifications.',
+        },
+        {
+          name = 'path',
+          type = 'string',
+          desc = "Full path to the plugin's directory.",
+        },
+      },
+    },
+    Progress = {
+      fields = {
+        {
+          name = 'id',
+          type = 'integer|string',
+          desc = 'ID of the progress message.',
+        },
+        {
+          name = 'text',
+          type = 'string[]',
+          desc = 'Text of the progress message.',
+        },
+        {
+          name = 'percent',
+          type = 'integer',
+          desc = 'Progress percentage.',
+          optional = true,
+        },
+        {
+          name = 'title',
+          type = 'string',
+          desc = 'Title for progress message.',
+          optional = true,
+        },
+        {
+          name = 'status',
+          type = '"running"|"success"|"failed"|"cancel"',
+          desc = 'Status for progress message.',
+          optional = true,
+        },
+        {
+          name = 'data',
+          type = 'table<string,any>',
+          desc = "Extra info for 'echo' messages.",
+          optional = true,
+        },
+      },
+    },
+    TermClose = {
+      fields = {
+        {
+          name = 'pos',
+          type = 'integer',
+          desc = 'Line number used for the exit message.',
+        },
+      },
+    },
+    TermRequest = {
+      fields = {
+        {
+          name = 'sequence',
+          type = 'string',
+          desc = 'The received sequence.',
+        },
+        {
+          name = 'terminator',
+          type = '"\\x07"|"\\x1b\\\\"',
+          desc = 'The received sequence terminator (BEL or ST).',
+        },
+        {
+          name = 'cursor',
+          type = '[integer, integer]',
+          desc = 'Cursor position when the sequence was received.',
+        },
+      },
+    },
+    TermResponse = {
+      fields = {
+        {
+          name = 'sequence',
+          type = 'string',
+          desc = 'The received sequence.',
+        },
+      },
+    },
   },
 }

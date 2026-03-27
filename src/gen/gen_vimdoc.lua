@@ -164,6 +164,7 @@ local config = {
 
       -- Sections in alphanumeric order:
       'base64.lua',
+      'event.lua',
       'filetype.lua',
       'fs.lua',
       'glob.lua',
@@ -200,6 +201,7 @@ local config = {
       'runtime/lua/vim/_inspector.lua',
       'runtime/lua/vim/_meta/base64.lua',
       'runtime/lua/vim/_meta/builtin.lua',
+      'runtime/lua/vim/_meta/event.lua',
       'runtime/lua/vim/_meta/json.lua',
       'runtime/lua/vim/_meta/lpeg.lua',
       'runtime/lua/vim/_meta/mpack.lua',

@@ -2277,6 +2277,126 @@ vim.base64.encode({str})                                 *vim.base64.encode()*
 
 
 ==============================================================================
+Lua module: vim.event                                              *vim.event*
+
+Autocmd event-data types for Lua callbacks.
+
+
+*vim.event.diagnosticchanged.data*
+    Event data for |DiagnosticChanged|.
+
+    Fields: ~
+      • {diagnostics}  (`vim.Diagnostic[]`) New diagnostics for the buffer.
+
+*vim.event.lspattach.data*
+    Event data for |LspAttach|.
+
+    Fields: ~
+      • {client_id}  (`integer`) LSP client ID.
+
+*vim.event.lspdetach.data*
+    Event data for |LspDetach|.
+
+    Fields: ~
+      • {client_id}  (`integer`) LSP client ID.
+
+*vim.event.lspnotify.data*
+    Event data for |LspNotify|.
+
+    Fields: ~
+      • {client_id}  (`integer`) LSP client ID.
+      • {method}     (`string`) Notification method name.
+      • {params}?    (`table`) Notification parameters.
+
+*vim.event.lspprogress.data*
+    Event data for |LspProgress|.
+
+    Fields: ~
+      • {client_id}  (`integer`) LSP client ID.
+      • {params}     (`lsp.ProgressParams`) The request params sent by the
+                     server.
+
+*vim.event.lsprequest.data*
+    Event data for |LspRequest|.
+
+    Fields: ~
+      • {client_id}   (`integer`) LSP client ID.
+      • {request_id}  (`integer`) Request ID.
+      • {request}     (`{ type: 'pending'|'complete'|'cancel', bufnr: integer, method: string }`)
+                      Request information.
+
+*vim.event.lsptokenupdate.data*
+    Event data for |LspTokenUpdate|.
+
+    Fields: ~
+      • {client_id}  (`integer`) LSP client ID.
+      • {token}      (`{ line: integer, start_col: integer, end_line: integer, end_col: integer, type: string, modifiers: table<string,boolean>, marked: boolean }`)
+                     Semantic token (see
+                     vim.lsp.semantic_tokens.get_at_pos()).
+
+*vim.event.markset.data*
+    Event data for |MarkSet|.
+
+    Fields: ~
+      • {name}  (`string`) Mark name (e.g. "a").
+      • {line}  (`integer`) Mark line.
+      • {col}   (`integer`) Mark column.
+
+*vim.event.packchanged.data*
+    Event data for |PackChanged|.
+
+    Fields: ~
+      • {active}  (`boolean`) Whether the plugin is active for the current
+                  session.
+      • {kind}    (`"install"|"update"|"delete"`) Type of change.
+      • {spec}    (`vim.pack.SpecResolved`) Plugin specifications.
+      • {path}    (`string`) Full path to the plugin's directory.
+
+*vim.event.packchangedpre.data*
+    Event data for |PackChangedPre|.
+
+    Fields: ~
+      • {active}  (`boolean`) Whether the plugin is active for the current
+                  session.
+      • {kind}    (`"install"|"update"|"delete"`) Type of change.
+      • {spec}    (`vim.pack.SpecResolved`) Plugin specifications.
+      • {path}    (`string`) Full path to the plugin's directory.
+
+*vim.event.progress.data*
+    Event data for |Progress|.
+
+    Fields: ~
+      • {id}        (`integer|string`) ID of the progress message.
+      • {text}      (`string[]`) Text of the progress message.
+      • {percent}?  (`integer`) Progress percentage.
+      • {title}?    (`string`) Title for progress message.
+      • {status}?   (`"running"|"success"|"failed"|"cancel"`) Status for
+                    progress message.
+      • {data}?     (`table<string,any>`) Extra info for 'echo' messages.
+
+*vim.event.termclose.data*
+    Event data for |TermClose|.
+
+    Fields: ~
+      • {pos}  (`integer`) Line number used for the exit message.
+
+*vim.event.termrequest.data*
+    Event data for |TermRequest|.
+
+    Fields: ~
+      • {sequence}    (`string`) The received sequence.
+      • {terminator}  (`"\x07"|"\x1b\\"`) The received sequence terminator
+                      (BEL or ST).
+      • {cursor}      (`[integer, integer]`) Cursor position when the sequence
+                      was received.
+
+*vim.event.termresponse.data*
+    Event data for |TermResponse|.
+
+    Fields: ~
+      • {sequence}  (`string`) The received sequence.
+
+==============================================================================
 Lua module: vim.filetype                                        *vim.filetype*
 
 vim.filetype.add({filetypes})                             *vim.filetype.add()*

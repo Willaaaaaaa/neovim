@@ -35,6 +35,17 @@ local LUA_META_HEADER = {
   "error('Cannot require a meta file')",
 }
 
+local LUA_EVENT_META_HEADER = {
+  '--- @meta _',
+  '-- THIS FILE IS GENERATED',
+  '-- DO NOT EDIT',
+  "error('Cannot require a meta file')",
+  '',
+  '---@brief',
+  '---',
+  '--- Autocmd event-data types for Lua callbacks.',
+}
+
 local LUA_API_META_HEADER = {
   '--- @meta _',
   '-- THIS FILE IS GENERATED',
@@ -736,6 +747,26 @@ local function get_vvar_meta()
   return ret
 end
 
+--- @class nvim.event_data_meta
+--- @field name string
+--- @field desc? string
+--- @field fields nvim.event_data_field[]
+
+--- @return table<string,nvim.event_data_meta>
+local function get_event_data_meta()
+  local info = require('nvim.auevents').data
+  local ret = {}
+  for name, o in pairs(info) do
+    local class_name = 'vim.event.' .. name:lower() .. '.data'
+    ret[class_name] = {
+      name = class_name,
+      desc = o.desc or fmt('Event data for |%s|.', name),
+      fields = o.fields,
+    }
+  end
+  return ret
+end
+
 --- @param opt vim.option_meta
 --- @return string[]
 local function build_option_tags(opt)
@@ -845,6 +876,32 @@ local function render_vvar_doc(_f, vvar, write)
   end
 end
 
+--- @param _f string
+--- @param data nvim.event_data_meta
+--- @param write fun(line: string)
+local function render_event_data_meta(_f, data, write)
+  write('')
+  for _, l in ipairs(split(data.desc)) do
+    write('--- ' .. l)
+  end
+  write('--- @class ' .. data.name)
+  for _, field in ipairs(data.fields) do
+    local name = field.name .. (field.optional and '?' or '')
+    if field.desc then
+      local desc = split(vim.trim(field.desc))
+      write(fmt('--- @field %s %s %s', name, field.type, desc[1]))
+      for i = 2, #desc do
+        if not desc[i] then
+          break
+        end
+        write('--- ' .. desc[i])
+      end
+    else
+      write(fmt('--- @field %s %s', name, field.type))
+    end
+  end
+end
+
 --- @class nvim.gen_eval_files.elem
 --- @field path string
 --- @field from? string Skip lines in path until this pattern is reached.
@@ -872,6 +929,12 @@ local CONFIG = {
     header = LUA_META_HEADER,
     funcs = get_api_keysets_meta,
     render = render_api_keyset_meta,
+  },
+  {
+    path = 'runtime/lua/vim/_meta/event.lua',
+    header = LUA_EVENT_META_HEADER,
+    funcs = get_event_data_meta,
+    render = render_event_data_meta,
   },
   {
     path = 'runtime/doc/vimfn.txt',

@@ -754,13 +754,22 @@ end
 
 --- @return table<string,nvim.event_data_meta>
 local function get_event_data_meta()
-  local info = require('nvim.auevents').data
+  local au = require('nvim.auevents')
+  local info = au.data
+  local helper_types = au.helper_types
   local ret = {}
   for name, o in pairs(info) do
     local class_name = 'vim.event.' .. name:lower() .. '.data'
     ret[class_name] = {
       name = class_name,
       desc = o.desc or fmt('Event data for |%s|.', name),
+      fields = o.fields,
+    }
+  end
+  for name, o in pairs(helper_types) do
+    ret[name] = {
+      name = name,
+      desc = o.desc,
       fields = o.fields,
     }
   end

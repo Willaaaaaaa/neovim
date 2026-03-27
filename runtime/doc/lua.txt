@@ -2322,17 +2322,37 @@ Autocmd event-data types for Lua callbacks.
     Fields: ~
       • {client_id}   (`integer`) LSP client ID.
       • {request_id}  (`integer`) Request ID.
-      • {request}     (`{ type: 'pending'|'complete'|'cancel', bufnr: integer, method: string }`)
-                      Request information.
+      • {request}     (`vim.event.lsprequest.request`) Request information.
+                      See |vim.event.lsprequest.request|.
+
+*vim.event.lsprequest.request*
+    Request information for |LspRequest|.
+
+    Fields: ~
+      • {type}    (`'pending'|'complete'|'cancel'`) Request status.
+      • {bufnr}   (`integer`) Buffer number.
+      • {method}  (`string`) Request method name.
 
 *vim.event.lsptokenupdate.data*
     Event data for |LspTokenUpdate|.
 
     Fields: ~
       • {client_id}  (`integer`) LSP client ID.
-      • {token}      (`{ line: integer, start_col: integer, end_line: integer, end_col: integer, type: string, modifiers: table<string,boolean>, marked: boolean }`)
-                     Semantic token (see
-                     vim.lsp.semantic_tokens.get_at_pos()).
+      • {token}      (`vim.event.lsptokenupdate.token`) Semantic token (see
+                     vim.lsp.semantic_tokens.get_at_pos()). See
+                     |vim.event.lsptokenupdate.token|.
+
+*vim.event.lsptokenupdate.token*
+    Semantic token for |LspTokenUpdate|.
+
+    Fields: ~
+      • {line}       (`integer`) Line number (0-based).
+      • {start_col}  (`integer`) Start column (0-based).
+      • {end_line}   (`integer`) End line number (0-based).
+      • {end_col}    (`integer`) End column (0-based).
+      • {type}       (`string`) Token type as string.
+      • {modifiers}  (`table<string,boolean>`) Token modifiers as a set.
+      • {marked}     (`boolean`) Whether this token has had extmarks applied.
 
 *vim.event.markset.data*
     Event data for |MarkSet|.

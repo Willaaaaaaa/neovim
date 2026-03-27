@@ -34,12 +34,28 @@ error('Cannot require a meta file')
 --- @class vim.event.lsprequest.data
 --- @field client_id integer LSP client ID.
 --- @field request_id integer Request ID.
---- @field request { type: 'pending'|'complete'|'cancel', bufnr: integer, method: vim.lsp.protocol.Method.ClientToServer.Request } Request information.
+--- @field request vim.event.lsprequest.request Request information.
+
+--- Request information for |LspRequest|.
+--- @class vim.event.lsprequest.request
+--- @field type 'pending'|'complete'|'cancel' Request status.
+--- @field bufnr integer Buffer number.
+--- @field method vim.lsp.protocol.Method.ClientToServer.Request Request method name.
 
 --- Event data for |LspTokenUpdate|.
 --- @class vim.event.lsptokenupdate.data
 --- @field client_id integer LSP client ID.
---- @field token { line: integer, start_col: integer, end_line: integer, end_col: integer, type: string, modifiers: table<string,boolean>, marked: boolean } Semantic token (see vim.lsp.semantic_tokens.get_at_pos()).
+--- @field token vim.event.lsptokenupdate.token Semantic token (see vim.lsp.semantic_tokens.get_at_pos()).
+
+--- Semantic token for |LspTokenUpdate|.
+--- @class vim.event.lsptokenupdate.token
+--- @field line integer Line number (0-based).
+--- @field start_col integer Start column (0-based).
+--- @field end_line integer End line number (0-based).
+--- @field end_col integer End column (0-based).
+--- @field type string Token type as string.
+--- @field modifiers table<string,boolean> Token modifiers as a set.
+--- @field marked boolean Whether this token has had extmarks applied.
 
 --- Event data for |MarkSet|.
 --- @class vim.event.markset.data

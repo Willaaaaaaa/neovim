@@ -1,6 +1,8 @@
 --- @class nvim.event_data
 --- @field desc? string
 --- @field fields { name: string, type: string, desc?: string, optional?: boolean }[]
+---
+--- @alias nvim.event_helper_type nvim.event_data
 
 return {
   --- @type table<string,boolean>
@@ -259,7 +261,7 @@ return {
         },
         {
           name = 'request',
-          type = "{ type: 'pending'|'complete'|'cancel', bufnr: integer, method: vim.lsp.protocol.Method.ClientToServer.Request }",
+          type = 'vim.event.lsprequest.request',
           desc = 'Request information.',
         },
       },
@@ -273,7 +275,7 @@ return {
         },
         {
           name = 'token',
-          type = '{ line: integer, start_col: integer, end_line: integer, end_col: integer, type: string, modifiers: table<string,boolean>, marked: boolean }',
+          type = 'vim.event.lsptokenupdate.token',
           desc = 'Semantic token (see vim.lsp.semantic_tokens.get_at_pos()).',
         },
       },
@@ -417,6 +419,69 @@ return {
           name = 'sequence',
           type = 'string',
           desc = 'The received sequence.',
+        },
+      },
+    },
+  },
+  --- @type table<string,nvim.event_helper_type>
+  helper_types = {
+    ['vim.event.lsprequest.request'] = {
+      desc = 'Request information for |LspRequest|.',
+      fields = {
+        {
+          name = 'type',
+          type = "'pending'|'complete'|'cancel'",
+          desc = 'Request status.',
+        },
+        {
+          name = 'bufnr',
+          type = 'integer',
+          desc = 'Buffer number.',
+        },
+        {
+          name = 'method',
+          type = 'vim.lsp.protocol.Method.ClientToServer.Request',
+          desc = 'Request method name.',
+        },
+      },
+    },
+    ['vim.event.lsptokenupdate.token'] = {
+      desc = 'Semantic token for |LspTokenUpdate|.',
+      fields = {
+        {
+          name = 'line',
+          type = 'integer',
+          desc = 'Line number (0-based).',
+        },
+        {
+          name = 'start_col',
+          type = 'integer',
+          desc = 'Start column (0-based).',
+        },
+        {
+          name = 'end_line',
+          type = 'integer',
+          desc = 'End line number (0-based).',
+        },
+        {
+          name = 'end_col',
+          type = 'integer',
+          desc = 'End column (0-based).',
+        },
+        {
+          name = 'type',
+          type = 'string',
+          desc = 'Token type as string.',
+        },
+        {
+          name = 'modifiers',
+          type = 'table<string,boolean>',
+          desc = 'Token modifiers as a set.',
+        },
+        {
+          name = 'marked',
+          type = 'boolean',
+          desc = 'Whether this token has had extmarks applied.',
         },
       },
     },

@@ -307,16 +307,11 @@ function M._get_urls()
 end
 
 do
-  ---@class ProgressMessage
-  ---@field id? number|string  ID of the progress message
-  ---@field title? string   Title of the progress message
-  ---@field status string  Status: "running" | "success" | "failed" | "cancel"
-  ---@field percent? integer Percent complete (0–100)
-  ---@private
-
+  ---@alias ProgressMessage vim.event.progress.data
+  ---
   --- Cache of active progress messages, keyed by msg_id
   --- TODO(justinmk): visibility of "stale" (never-finished) Progress. https://github.com/neovim/neovim/pull/35428#discussion_r2942696157
-  ---@type table<integer, ProgressMessage>
+  ---@type table<integer|string,ProgressMessage>
   local progress = {}
 
   -- store progress events
@@ -328,7 +323,7 @@ do
     progress_autocmd = vim.api.nvim_create_autocmd('Progress', {
       group = progress_group,
       desc = 'Tracks progress messages for vim.ui.progress_status()',
-      ---@param ev {data: {id: integer, title: string, status: string, percent: integer}}
+      ---@param ev {data?: ProgressMessage}
       callback = function(ev)
         if not ev.data or not ev.data.id then
           return

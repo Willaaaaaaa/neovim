@@ -8,14 +8,8 @@ local Capability = require('vim.lsp._capability')
 
 local M = {}
 
---- @class (private) STTokenRange
---- @field line integer line number 0-based
---- @field start_col integer start column 0-based
---- @field end_line integer end line number 0-based
---- @field end_col integer end column 0-based
---- @field type string token type as string
---- @field modifiers table<string,boolean> token modifiers as a set. E.g., { static = true, readonly = true }
---- @field marked boolean whether this token has had extmarks applied
+--- @private
+--- @alias STTokenRange vim.event.lsptokenupdate.token
 
 --- @class (private) STCurrentResult
 --- @field version? integer document version associated with this result

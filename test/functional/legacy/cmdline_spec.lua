@@ -694,8 +694,9 @@ describe('cmdline', function()
     feed(':term')
     screen:expect([[
                                               |
-      {1:~                                       }|*7
+      {1:~                                       }|*6
       {4: terminal       }{1:                        }|
+      {4: termsave       }{1:                        }|
       :term^                                   |
     ]])
     feed(' ')

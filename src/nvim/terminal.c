@@ -36,12 +36,15 @@
 #include <assert.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "auto/config.h"
 #include "klib/kvec.h"
+#include "nvim/api/private/defs.h"
 #include "nvim/api/private/helpers.h"
 #include "nvim/ascii_defs.h"
 #include "nvim/autocmd.h"
@@ -64,6 +67,7 @@
 #include "nvim/event/multiqueue.h"
 #include "nvim/event/time.h"
 #include "nvim/ex_docmd.h"
+#include "nvim/fileio.h"
 #include "nvim/getchar.h"
 #include "nvim/globals.h"
 #include "nvim/grid.h"
@@ -78,15 +82,25 @@
 #include "nvim/mbyte.h"
 #include "nvim/memline.h"
 #include "nvim/memory.h"
+#include "nvim/message.h"
 #include "nvim/mouse.h"
 #include "nvim/move.h"
 #include "nvim/msgpack_rpc/channel_defs.h"
+#include "nvim/msgpack_rpc/packer.h"
+#include "nvim/msgpack_rpc/packer_defs.h"
 #include "nvim/normal_defs.h"
 #include "nvim/ops.h"
 #include "nvim/option.h"
 #include "nvim/option_defs.h"
 #include "nvim/option_vars.h"
 #include "nvim/optionstr.h"
+#include "nvim/os/fileio.h"
+#include "nvim/os/fileio_defs.h"
+#include "nvim/os/fs.h"
+#include "nvim/os/os.h"
+#include "nvim/os/shell.h"
+#include "nvim/os/time.h"
+#include "nvim/path.h"
 #include "nvim/pos_defs.h"
 #include "nvim/state.h"
 #include "nvim/state_defs.h"
@@ -102,6 +116,7 @@
 #include "nvim/vterm/screen.h"
 #include "nvim/vterm/state.h"
 #include "nvim/vterm/vterm.h"
+#include "nvim/vterm/vterm_defs.h"
 #include "nvim/vterm/vterm_keycodes_defs.h"
 #include "nvim/window.h"
 
@@ -517,6 +532,286 @@ static void terminal_gen_id(char *id)
   byte2hex(buf, sizeof(buf), id);
 }
 
+// terminal state export {{{
+
+static char *terminal_state_file_path(const char *term_id)
+  FUNC_ATTR_NONNULL_ALL FUNC_ATTR_WARN_UNUSED_RESULT FUNC_ATTR_MALLOC
+{
+  char *dir = stdpaths_user_state_subpath("term", 0, false);
+  size_t path_len = strlen(dir) + strlen(PATHSEPSTR) + TERM_ID_HEX_CHARS + sizeof(".term");
+  char *path = xmalloc(path_len);
+  snprintf(path, path_len, "%s%s%s.term", dir, PATHSEPSTR, term_id);
+  xfree(dir);
+  return path;
+}
+
+static bool cell_is_blank(const VTermScreenCell *cell)
+  FUNC_ATTR_NONNULL_ALL FUNC_ATTR_WARN_UNUSED_RESULT FUNC_ATTR_PURE
+{
+  return cell->schar == 0 || cell->schar == schar_from_char(' ');
+}
+
+static bool cell_sgr_equal(const VTermScreenCell *a, const VTermScreenCell *b)
+  FUNC_ATTR_NONNULL_ALL FUNC_ATTR_WARN_UNUSED_RESULT FUNC_ATTR_PURE
+{
+  return memcmp(&a->attrs, &b->attrs, sizeof(a->attrs)) == 0
+         && memcmp(&a->bg, &b->bg, sizeof(a->bg)) == 0
+         && memcmp(&a->fg, &b->fg, sizeof(a->fg)) == 0;
+}
+
+static void terminal_append_sgr_color(StringBuilder *out, const VTermColor *color, bool is_fg,
+                                      VTermState *state)
+  FUNC_ATTR_NONNULL_ALL
+{
+  // default color
+  if ((is_fg && VTERM_COLOR_IS_DEFAULT_FG(color)) || (!is_fg && VTERM_COLOR_IS_DEFAULT_BG(color))) {
+    kv_printf(*out, ";%d", is_fg ? 39 : 49);
+    return;
+  }
+
+  // indexed color
+  if (VTERM_COLOR_IS_INDEXED(color)) {
+    kv_printf(*out, ";%d;5;%d", is_fg ? 38 : 48, color->indexed.idx);
+    return;
+  }
+
+  // RGB color
+  VTermColor rgb = *color;
+  vterm_state_convert_color_to_rgb(state, &rgb);
+  kv_printf(*out, ";%d;2;%d;%d;%d", is_fg ? 38 : 48, rgb.rgb.red, rgb.rgb.green, rgb.rgb.blue);
+}
+
+static void terminal_append_sgr(StringBuilder *out, const VTermScreenCell *cell, VTermState *state)
+  FUNC_ATTR_NONNULL_ALL
+{
+  kv_concat(*out, "\x1b[0");
+  if (cell->attrs.bold) {
+    kv_concat(*out, ";1");
+  }
+  if (cell->attrs.dim) {
+    kv_concat(*out, ";2");
+  }
+  if (cell->attrs.italic) {
+    kv_concat(*out, ";3");
+  }
+  switch (cell->attrs.underline) {
+  case VTERM_UNDERLINE_SINGLE:
+    kv_concat(*out, ";4");
+    break;
+  case VTERM_UNDERLINE_DOUBLE:
+    kv_concat(*out, ";21");
+    break;
+  case VTERM_UNDERLINE_CURLY:
+    kv_concat(*out, ";4:3");
+    break;
+  case VTERM_UNDERLINE_OFF:
+    break;
+  }
+  if (cell->attrs.blink) {
+    kv_concat(*out, ";5");
+  }
+  if (cell->attrs.reverse) {
+    kv_concat(*out, ";7");
+  }
+  if (cell->attrs.conceal) {
+    kv_concat(*out, ";8");
+  }
+  if (cell->attrs.strike) {
+    kv_concat(*out, ";9");
+  }
+  if (cell->attrs.font) {
+    kv_printf(*out, ";%d", 10 + cell->attrs.font);
+  }
+  terminal_append_sgr_color(out, &cell->fg, true, state);
+  terminal_append_sgr_color(out, &cell->bg, false, state);
+  if (cell->attrs.overline) {
+    kv_concat(*out, ";53");
+  }
+  if (cell->attrs.small) {
+    if (cell->attrs.baseline == VTERM_BASELINE_RAISE) {
+      kv_concat(*out, ";73");
+    } else if (cell->attrs.baseline == VTERM_BASELINE_LOWER) {
+      kv_concat(*out, ";74");
+    }
+  }
+  kv_push(*out, 'm');
+}
+
+static void terminal_line2ansi(Terminal *term, const VTermScreenCell *cells, size_t cols,
+                               StringBuilder *out)
+  FUNC_ATTR_NONNULL_ALL
+{
+  // Trim trailing blank cells to optimize output size
+  size_t end = cols;
+  while (end > 0 && cell_is_blank(&cells[end - 1])) {
+    end--;
+  }
+
+  VTermState *state = vterm_obtain_state(term->vt);
+  VTermScreenCell curr = { 0 };
+
+  // iterate cells
+  for (size_t col = 0; col < end; col++) {
+    const VTermScreenCell *cell = &cells[col];
+
+    // Skip for wide chars
+    if (cell->width == 0) {
+      continue;
+    }
+
+    // Append escape sequence on sgr change
+    if (!cell_sgr_equal(&curr, cell)) {
+      terminal_append_sgr(out, cell, state);
+      curr = *cell;
+    }
+
+    // Append character
+    if (cell->schar) {
+      char buf[MAX_SCHAR_SIZE];
+      size_t len = schar_get(buf, cell->schar);
+      kv_concat_len(*out, buf, len);
+    } else {
+      kv_push(*out, ' ');
+    }
+  }
+
+  // Reset sgr state at EOL
+  kv_concat(*out, "\x1b[0m\n");
+}
+
+static String terminal_export_ansi(Terminal *term)
+  FUNC_ATTR_NONNULL_ALL FUNC_ATTR_WARN_UNUSED_RESULT
+{
+  StringBuilder out = KV_INITIAL_VALUE;
+
+  // Export scrollback buffer
+  for (size_t i = term->sb_current; i > 0; i--) {
+    ScrollbackLine *line = term->sb_buffer[i - 1];
+    terminal_line2ansi(term, line->cells, line->cols, &out);
+  }
+
+  // Export current screen
+  int height, width;
+  vterm_get_size(term->vt, &height, &width);
+  VTermScreenCell *cells = xmalloc(sizeof(*cells) * (size_t)width);
+  for (int row = 0; row < height; row++) {
+    for (int col = 0; col < width; col++) {
+      vterm_screen_get_cell(term->vts, (VTermPos){ .row = row, .col = col }, &cells[col]);
+    }
+    terminal_line2ansi(term, cells, (size_t)width, &out);
+  }
+  xfree(cells);
+
+  return (String){ .data = out.items, .size = out.size };
+}
+
+static String terminal_pack_content(const Terminal *term, const String *content)
+  FUNC_ATTR_NONNULL_ALL FUNC_ATTR_WARN_UNUSED_RESULT
+{
+  // Get cwd
+  Channel *chan = (Channel *)term->opts.data;
+  const char *cwd = chan->stream.pty.proc.cwd;
+
+  // Get cmd
+  char **argv = chan->stream.pty.proc.argv;
+  char *cmd = shell_argv_to_str(argv);
+
+  // Get title
+  buf_T *buf = handle_get_buffer(term->buf_handle);
+  Error err = ERROR_INIT;
+  Object title_obj = dict_get_value(buf->b_vars, STATIC_CSTR_AS_STRING("term_title"), NULL, &err);
+  api_clear_error(&err);
+  String title = STRING_INIT;
+  if (title_obj.type == kObjectTypeString) {
+    title = title_obj.data.string;
+  }
+
+  PackerBuffer packer = packer_string_buffer();
+  mpack_map(&packer.ptr, 6);
+
+  mpack_str(cstr_as_string("term_id"), &packer);
+  mpack_bin(cstr_as_string(term->id), &packer);
+
+  mpack_str(cstr_as_string("cwd"), &packer);
+  mpack_str(cstr_as_string(cwd), &packer);
+
+  mpack_str(cstr_as_string("cmd"), &packer);
+  mpack_str(cstr_as_string(cmd), &packer);
+
+  mpack_str(cstr_as_string("timestamp"), &packer);
+  mpack_uint64(&packer.ptr, os_time());
+
+  mpack_str(cstr_as_string("title"), &packer);
+  mpack_str(title, &packer);
+
+  mpack_str(cstr_as_string("content"), &packer);
+  mpack_bin(*content, &packer);
+
+  String packed = packer_take_string(&packer);
+  xfree(cmd);
+  return packed;
+}
+
+static bool write_term_file(char *path, String packed_content)
+  FUNC_ATTR_NONNULL_ARG(1) FUNC_ATTR_WARN_UNUSED_RESULT
+{
+  if (os_file_mkdir(path, 0700) != 0) {
+    return false;
+  }
+
+  size_t path_len = strlen(path);
+  char *tmp = xmalloc(path_len + sizeof(".tmp"));
+  snprintf(tmp, path_len + sizeof(".tmp"), "%s.tmp", path);
+
+  FileDescriptor writer;
+  if (file_open(&writer, tmp, kFileCreate | kFileTruncate, 0600) != 0) {
+    xfree(tmp);
+    return false;
+  }
+
+  // TODO(Willaaaaaaa): maybe add some error messages here.
+  bool ok = true;
+  if (file_write(&writer, packed_content.data, packed_content.size) < 0) {
+    ok = false;
+  }
+  if (file_close(&writer, true)) {
+    ok = false;
+  }
+
+  if (ok && vim_rename(tmp, path) == -1) {
+    ok = false;
+  }
+
+  if (!ok) {
+    os_remove(tmp);
+  }
+  xfree(tmp);
+  return ok;
+}
+
+static bool terminal_save_state(Terminal *term, char **fname)
+  FUNC_ATTR_NONNULL_ARG(1) FUNC_ATTR_WARN_UNUSED_RESULT
+{
+  if (term->in_altscreen) {
+    return false;
+  }
+
+  char *path = terminal_state_file_path(term->id);
+  refresh_terminal(term);
+  String content = terminal_export_ansi(term);
+  String packed = terminal_pack_content(term, &content);
+  bool ok = write_term_file(path, packed);
+  xfree(content.data);
+  xfree(packed.data);
+
+  if (ok && fname) {
+    *fname = path;
+  } else {
+    xfree(path);
+  }
+  return ok;
+}
+// }}}
 // public API {{{
 
 /// Allocates a terminal instance and initializes terminal properties.
@@ -1591,6 +1886,20 @@ static void terminal_focus(const Terminal *term, bool focus)
     vterm_state_focus_in(state);
   } else {
     vterm_state_focus_out(state);
+  }
+}
+
+void ex_termsave(exarg_T *eap FUNC_ATTR_UNUSED)
+{
+  if (!curbuf->terminal) {
+    // TODO(Willaaaaaaa): add error handling
+    return;
+  }
+  char *path = NULL;
+  if (terminal_save_state(curbuf->terminal, &path)) {
+    // TODO(Willaaaaaaa): currently for debugging, can be removed once all be done.
+    smsg(0, "Saved terminal (id = %s) state file to %s", curbuf->terminal->id, path);
+    xfree(path);
   }
 }
 

@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "nvim/api/private/defs.h"  // IWYU pragma: keep
+#include "nvim/ex_cmds_defs.h"
 #include "nvim/types_defs.h"  // IWYU pragma: keep
 
 typedef void (*terminal_read_pause_cb)(bool pause, void *data);

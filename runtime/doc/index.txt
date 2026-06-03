@@ -1650,6 +1650,7 @@ Tag		Command		Action ~
 |:tcd|		:tc[d]		change directory for tabpage
 |:tchdir|	:tch[dir]	change directory for tabpage
 |:terminal|	:te[rminal]	open a terminal buffer
+|:termsave|	:termsave	save terminal buffer state to a file
 |:tfirst|	:tf[irst]	jump to first matching tag
 |:throw|	:th[row]	throw an exception
 |:tjump|	:tj[ump]	like ":tselect", but jump directly when there

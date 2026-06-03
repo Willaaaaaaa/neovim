@@ -240,7 +240,9 @@ STARTUP
 
 TERMINAL
 
-• todo
+• Each terminal buffer now has a persistent |b:term_id|.
+• |:termsave| saves the current terminal buffer state to a file for later
+  restoration.
 
 TREESITTER
 

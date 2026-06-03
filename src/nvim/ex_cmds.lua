@@ -2898,6 +2898,12 @@ M.cmds = {
     func = 'ex_terminal',
   },
   {
+    command = 'termsave',
+    flags = bit.bor(TRLBAR, CMDWIN, LOCK_OK),
+    addr_type = 'ADDR_NONE',
+    func = 'ex_termsave',
+  },
+  {
     command = 'tfirst',
     flags = bit.bor(RANGE, BANG, TRLBAR, ZEROR),
     addr_type = 'ADDR_OTHER',

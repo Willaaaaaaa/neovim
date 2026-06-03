@@ -11,7 +11,6 @@ local fn = n.fn
 local api = n.api
 local exec_lua = n.exec_lua
 local retry = t.retry
-local pcall_err = t.pcall_err
 local ok = t.ok
 local command = n.command
 local skip = t.skip
@@ -365,4 +364,23 @@ describe(':terminal (with fake shell)', function()
       test_terminal_with_fake_shell(true)
     end)
   end
+end)
+
+describe(':termsave', function()
+  -- This test can be removed afterwards.
+  it('assigns b:term_id as 16-char hex', function()
+    command('terminal')
+    local id = eval('b:term_id')
+    eq(type(id), 'string')
+    eq(#id, 16)
+    ok(id:match('^[0-9a-f]+$'))
+  end)
+
+  it(':termsave works', function()
+    command('terminal')
+    local id = eval('b:term_id')
+    command('termsave')
+    local path = fn.stdpath('state') .. '/term/' .. id .. '.term'
+    eq(fn.filereadable(path), 1)
+  end)
 end)

@@ -81,6 +81,7 @@ defsfile:write(string.format(
 #include "nvim/spell.h"
 #include "nvim/spellfile.h"
 #include "nvim/syntax.h"
+#include "nvim/terminal.h"
 #include "nvim/undo.h"
 #include "nvim/usercmd.h"
 #include "nvim/version.h"

@@ -255,6 +255,8 @@ Example: >vim
 - *b:term_title*  Terminal title (user-writable), typically displayed in the
   window title or tab title of a graphical terminal emulator. Terminal
   programs can set this by emitting an escape sequence.
+- *b:term_id*  Persistent terminal identifier (16-character hex string).
+  This ID will remain stable across restore.
 - 'channel'  Terminal PTY |job-id|.  Can be used with |chansend()| to send
   input to the terminal.
 - The |TermClose| event gives the terminal job exit code in the |v:event|

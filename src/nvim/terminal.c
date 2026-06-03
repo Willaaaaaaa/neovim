@@ -134,6 +134,9 @@ typedef struct {
 #define TEXTBUF_SIZE      0x1fff
 #define SELECTIONBUF_SIZE 0x0400
 
+#define TERM_ID_RAW_BYTES 8  // 64 bits = 8 bytes * 8 bits/byte
+#define TERM_ID_HEX_CHARS (TERM_ID_RAW_BYTES * 2)
+
 static TimeWatcher refresh_timer;
 static bool refresh_pending = false;
 
@@ -170,7 +173,8 @@ struct terminal {
   // we can't store a direct reference to the buffer because the
   // refresh_timer_cb may be called after the buffer was freed, and there's
   // no way to know if the memory was reused.
-  handle_T buf_handle;
+  handle_T buf_handle;              ///< Runtime buffer identity for this terminal.
+  char id[TERM_ID_HEX_CHARS + 1];   ///< Persistent 64-bit hex identity.
   bool in_altscreen;
   // program suspended
   bool suspended;
@@ -490,6 +494,29 @@ static bool term_may_alloc_scrollback(Terminal *term, buf_T *buf)
   return true;
 }
 
+static void byte2hex(const uint8_t *src, size_t len, char *dst)
+  FUNC_ATTR_NONNULL_ALL
+{
+  static const char hex_chars[] = "0123456789abcdef";
+  for (size_t i = 0; i < len; i++) {
+    dst[i * 2] = hex_chars[(src[i] >> 4) & 0x0f];
+    dst[i * 2 + 1] = hex_chars[src[i] & 0x0f];
+  }
+  dst[len * 2] = '\0';
+}
+
+static void terminal_gen_id(char *id)
+  FUNC_ATTR_NONNULL_ALL
+{
+  uint8_t buf[TERM_ID_RAW_BYTES];
+  if (uv_random(NULL, NULL, buf, sizeof(buf), 0, NULL) != 0) {
+    // fall back when system's random number generator doesn't work
+    uint64_t value = os_hrtime() ^ (uint64_t)os_get_pid();
+    memcpy(buf, &value, sizeof(value));
+  }
+  byte2hex(buf, sizeof(buf), id);
+}
+
 // public API {{{
 
 /// Allocates a terminal instance and initializes terminal properties.
@@ -511,6 +538,21 @@ Terminal *terminal_alloc(buf_T *buf, TerminalOptions opts)
   // Associate the terminal instance with the new buffer
   term->buf_handle = buf->handle;
   buf->terminal = term;
+
+  // Generate terminal id for persistence
+  terminal_gen_id(term->id);
+  Error err = ERROR_INIT;
+  buf->b_locked++;
+  dict_set_var(buf->b_vars,
+               STATIC_CSTR_AS_STRING("term_id"),
+               STRING_OBJ(((String){ .data = (char *)term->id, .size = TERM_ID_HEX_CHARS })),
+               false,
+               false,
+               NULL,
+               &err);
+  buf->b_locked--;
+  api_clear_error(&err);
+
   // Create VTerm
   term->vt = vterm_new(opts.height, opts.width);
   vterm_set_utf8(term->vt, 1);

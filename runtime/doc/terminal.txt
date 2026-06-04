@@ -272,11 +272,9 @@ Use |jobwait()| to check if the terminal job has finished: >vim
 Terminal persistence                                    *terminal-persistence*
 
                                                                    *:termsave*
-:termsave       Save the current terminal buffer's state (scrollback, process
-                metadata and ANSI content) to a file under
-                |standard-path|/term/. The filename is derived from
-                |b:term_id|. The saved state can later be used to restore the
-                terminal session.
+:termsave       Save the current terminal buffer state to a file in
+                |standard-path|/term/. The filename is based on |b:term_id|.
+                The saved state can be used to restore the terminal session.
 
 ==============================================================================
 :Termdebug plugin                         *terminal-debug* *terminal-debugger*

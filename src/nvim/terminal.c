@@ -551,12 +551,48 @@ static bool cell_is_blank(const VTermScreenCell *cell)
   return cell->schar == 0 || cell->schar == schar_from_char(' ');
 }
 
+/// Compare two `VTermColor` values. Unlike `memcmp()`, this function won't read undefined
+/// bytes from the union's inactive members.
+static bool vterm_color_equal(const VTermColor *a, const VTermColor *b)
+{
+  if (VTERM_COLOR_IS_DEFAULT_FG(a) || VTERM_COLOR_IS_DEFAULT_BG(a)
+      || VTERM_COLOR_IS_DEFAULT_FG(b) || VTERM_COLOR_IS_DEFAULT_BG(b)) {
+    // Default fg/bg have no extra value to compare.
+    // They shouldn't be compared as indexed/rgb color
+    return a->type == b->type;
+  }
+  if (VTERM_COLOR_IS_INDEXED(a) && VTERM_COLOR_IS_INDEXED(b)) {
+    return a->indexed.idx == b->indexed.idx;
+  }
+  if (VTERM_COLOR_IS_RGB(a) && VTERM_COLOR_IS_RGB(b)) {
+    return a->rgb.red == b->rgb.red
+           && a->rgb.green == b->rgb.green
+           && a->rgb.blue == b->rgb.blue;
+  }
+  return false;
+}
+
 static bool cell_sgr_equal(const VTermScreenCell *a, const VTermScreenCell *b)
   FUNC_ATTR_NONNULL_ALL FUNC_ATTR_WARN_UNUSED_RESULT FUNC_ATTR_PURE
 {
-  return memcmp(&a->attrs, &b->attrs, sizeof(a->attrs)) == 0
-         && memcmp(&a->bg, &b->bg, sizeof(a->bg)) == 0
-         && memcmp(&a->fg, &b->fg, sizeof(a->fg)) == 0;
+  // `VTermScreenCellAttrs` is a struct with bit-fields that packed into 32 bits,
+  // where only 20 bits are used, so we can't use `memcmp()` here.
+  return a->attrs.bold == b->attrs.bold
+         && a->attrs.underline == b->attrs.underline
+         && a->attrs.italic == b->attrs.italic
+         && a->attrs.blink == b->attrs.blink
+         && a->attrs.reverse == b->attrs.reverse
+         && a->attrs.conceal == b->attrs.conceal
+         && a->attrs.strike == b->attrs.strike
+         && a->attrs.font == b->attrs.font
+         && a->attrs.dwl == b->attrs.dwl
+         && a->attrs.dhl == b->attrs.dhl
+         && a->attrs.small == b->attrs.small
+         && a->attrs.baseline == b->attrs.baseline
+         && a->attrs.dim == b->attrs.dim
+         && a->attrs.overline == b->attrs.overline
+         && vterm_color_equal(&a->fg, &b->fg)
+         && vterm_color_equal(&a->bg, &b->bg);
 }
 
 static void terminal_append_sgr_color(StringBuilder *out, const VTermColor *color, bool is_fg,
@@ -565,7 +601,6 @@ static void terminal_append_sgr_color(StringBuilder *out, const VTermColor *colo
 {
   // default color
   if ((is_fg && VTERM_COLOR_IS_DEFAULT_FG(color)) || (!is_fg && VTERM_COLOR_IS_DEFAULT_BG(color))) {
-    kv_printf(*out, ";%d", is_fg ? 39 : 49);
     return;
   }
 
@@ -646,6 +681,11 @@ static void terminal_line2ansi(Terminal *term, const VTermScreenCell *cells, siz
   while (end > 0 && cell_is_blank(&cells[end - 1])) {
     end--;
   }
+  // Preserve empty lines
+  if (end == 0) {
+    kv_concat(*out, "\x1b[0m\n");
+    return;
+  }
 
   VTermState *state = vterm_obtain_state(term->vt);
   VTermScreenCell curr = { 0 };
@@ -675,8 +715,7 @@ static void terminal_line2ansi(Terminal *term, const VTermScreenCell *cells, siz
     }
   }
 
-  // Reset sgr state at EOL
-  kv_concat(*out, "\x1b[0m\n");
+  kv_concat(*out, "\n");
 }
 
 static String terminal_export_ansi(Terminal *term)
@@ -693,8 +732,27 @@ static String terminal_export_ansi(Terminal *term)
   // Export current screen
   int height, width;
   vterm_get_size(term->vt, &height, &width);
+  int last_row = height - 1;
+  if (term->sb_current == 0) {
+    // Don't save empty line when the `vts` is not full.
+    while (last_row >= 0) {
+      bool empty = true;
+      for (int col = 0; col < width; col++) {
+        VTermScreenCell cell;
+        vterm_screen_get_cell(term->vts, (VTermPos){ .row = last_row, .col = col }, &cell);
+        if (!cell_is_blank(&cell)) {
+          empty = false;
+          break;
+        }
+      }
+      if (!empty) {
+        break;
+      }
+      last_row--;
+    }
+  }
   VTermScreenCell *cells = xmalloc(sizeof(*cells) * (size_t)width);
-  for (int row = 0; row < height; row++) {
+  for (int row = 0; row <= last_row; row++) {
     for (int col = 0; col < width; col++) {
       vterm_screen_get_cell(term->vts, (VTermPos){ .row = row, .col = col }, &cells[col]);
     }
@@ -730,7 +788,7 @@ static String terminal_pack_content(const Terminal *term, const String *content)
   mpack_map(&packer.ptr, 6);
 
   mpack_str(cstr_as_string("term_id"), &packer);
-  mpack_bin(cstr_as_string(term->id), &packer);
+  mpack_str(cstr_as_string(term->id), &packer);
 
   mpack_str(cstr_as_string("cwd"), &packer);
   mpack_str(cstr_as_string(cwd), &packer);
